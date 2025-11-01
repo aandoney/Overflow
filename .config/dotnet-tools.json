@@ -8,6 +8,13 @@
         "dotnet-ef"
       ],
       "rollForward": false
+    },
+    "aspire.cli": {
+      "version": "9.5.2",
+      "commands": [
+        "aspire"
+      ],
+      "rollForward": false
     }
   }
 }

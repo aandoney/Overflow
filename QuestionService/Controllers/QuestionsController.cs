@@ -23,7 +23,7 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
         {
             return BadRequest("Invalid tags");
         }
-        
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         var name = User.FindFirstValue("name");
 
@@ -40,13 +40,13 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
             AskerId = userId,
             AskerDisplayName = name
         };
-        
+
         db.Questions.Add(question);
         await db.SaveChangesAsync();
 
         await bus.PublishAsync(
             new QuestionCreated(question.Id, question.Title, question.Content, question.CreatedAt, question.TagSlugs));
-        
+
         return Created($"/questions/{question.Id}", question);
     }
 
@@ -59,7 +59,7 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
         {
             query = query.Where(x => x.TagSlugs.Contains(tag));
         }
-        
+
         return await query.OrderByDescending(x => x.CreatedAt).ToListAsync();
     }
 
@@ -69,7 +69,7 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
         var question = await db.Questions
             .Include(x => x.Answers)
             .SingleOrDefaultAsync(x => x.Id == id);
-        
+
         if (question is null)
         {
             return NotFound();
@@ -78,7 +78,7 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
         await db.Questions.Where(x => x.Id == id)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(x => x.ViewCount, x => x.ViewCount + 1));
-        
+
         return question;
     }
 
@@ -97,22 +97,22 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
         {
             return Forbid();
         }
-        
+
         if (!await tagService.AreTagsValidAsync(dto.Tags))
         {
             return BadRequest("Invalid tags");
         }
-        
+
         question.Title = dto.Title;
         question.Content = dto.Content;
         question.TagSlugs = dto.Tags;
         question.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
-        
+
         await bus.PublishAsync(
             new QuestionUpdated(question.Id, question.Title, question.Content, question.TagSlugs.ToArray()));
-        
+
         return NoContent();
     }
 
@@ -131,12 +131,12 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
         {
             return Forbid();
         }
-        
+
         db.Questions.Remove(question);
         await db.SaveChangesAsync();
-        
+
         await bus.PublishAsync(new QuestionDeleted(question.Id));
-        
+
         return NoContent();
     }
 
@@ -165,14 +165,14 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
             UserDisplayName = name,
             QuestionId = questionId,
         };
-        
+
         db.Answers.Add(answer);
         question.AnswerCount++;
-        
+
         await db.SaveChangesAsync();
-        
+
         await bus.PublishAsync(new AnswerCountUpdated(questionId, question.AnswerCount));
-        
+
         return Created($"/questions/{question.Id}/answers", answer);
     }
 
@@ -185,7 +185,7 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
         {
             return BadRequest("Cannot get user details");
         }
-        
+
         var answer = await db.Answers.FindAsync(answerId);
         if (answer is null)
         {
@@ -196,7 +196,7 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
         {
             return BadRequest("Cannot update answer details");
         }
-        
+
         answer.Content = answerDto.Content;
         answer.UserDisplayName = name;
         answer.UpdatedAt = DateTime.UtcNow;
@@ -215,18 +215,18 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
         {
             return BadRequest("Cannot get user details");
         }
-        
+
         var answer = await db.Answers.FindAsync(answerId);
         if (answer is null)
         {
             return NotFound();
         }
-        
+
         if (answer.UserId != userId)
         {
             return Forbid();
         }
-        
+
         var question = await db.Questions.FindAsync(questionId);
         if (question is null)
         {
@@ -237,14 +237,14 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
         {
             return BadRequest("Cannot delete the accepted answer");
         }
-        
+
         db.Answers.Remove(answer);
         question.AnswerCount--;
-        
+
         await db.SaveChangesAsync();
-        
+
         await bus.PublishAsync(new AnswerCountUpdated(questionId, question.AnswerCount));
-        
+
         return NoContent();
     }
 
@@ -262,7 +262,7 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
         {
             return BadRequest("There is already an accepted answer for this question");
         }
-        
+
         var answer = await db.Answers.FindAsync(answerId);
         if (answer is null)
         {
@@ -273,14 +273,31 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
         {
             return BadRequest("Cannot update answer details");
         }
-        
+
         answer.Accepted = true;
         question.HasAcceptedAnswer = true;
-        
+
         await db.SaveChangesAsync();
 
         await bus.PublishAsync(new AnswerAccepted(questionId));
-        
+
         return NoContent();
+    }
+
+    [HttpGet("errors")]
+    public ActionResult<string> GetErrorResponses(int code)
+    {
+        ModelState.AddModelError("problem one", "validation problem 1");
+        ModelState.AddModelError("problem two", "validation problem 2");
+        
+        return code switch
+        {
+            400 => BadRequest("Opposite of good request"),
+            401 => Unauthorized(),
+            403 => Forbid(),
+            404 => NotFound(),
+            500 => throw new Exception("this is a server error"),
+            _ => ValidationProblem(ModelState)
+        };
     }
 }
