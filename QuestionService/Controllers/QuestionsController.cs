@@ -283,21 +283,4 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
 
         return NoContent();
     }
-
-    [HttpGet("errors")]
-    public ActionResult<string> GetErrorResponses(int code)
-    {
-        ModelState.AddModelError("problem one", "validation problem 1");
-        ModelState.AddModelError("problem two", "validation problem 2");
-        
-        return code switch
-        {
-            400 => BadRequest("Opposite of good request"),
-            401 => Unauthorized(),
-            403 => Forbid(),
-            404 => NotFound(),
-            500 => throw new Exception("this is a server error"),
-            _ => ValidationProblem(ModelState)
-        };
-    }
 }
