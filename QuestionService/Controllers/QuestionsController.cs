@@ -1,5 +1,6 @@
 ﻿using System.Security.Claims;
 using Contracts;
+using Ganss.Xss;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -31,11 +32,13 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
         {
             return BadRequest("Cannot get user details");
         }
+        
+        var sanitizer = new HtmlSanitizer();
 
         var question = new Question
         {
             Title = dto.Title,
-            Content = dto.Content,
+            Content = sanitizer.Sanitize(dto.Content),
             TagSlugs = dto.Tags,
             AskerId = userId,
             AskerDisplayName = name
@@ -102,9 +105,11 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
         {
             return BadRequest("Invalid tags");
         }
+        
+        var sanitizer = new HtmlSanitizer();
 
         question.Title = dto.Title;
-        question.Content = dto.Content;
+        question.Content = sanitizer.Sanitize(dto.Content);
         question.TagSlugs = dto.Tags;
         question.UpdatedAt = DateTime.UtcNow;
 
@@ -157,10 +162,12 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
         {
             return BadRequest("Cannot get user details");
         }
+        
+        var sanitizer = new HtmlSanitizer();
 
         var answer = new Answer
         {
-            Content = answerDto.Content,
+            Content = sanitizer.Sanitize(answerDto.Content),
             UserId = userId,
             UserDisplayName = name,
             QuestionId = questionId,
@@ -196,8 +203,10 @@ public class QuestionsController(QuestionDbContext db, IMessageBus bus, TagServi
         {
             return BadRequest("Cannot update answer details");
         }
+        
+        var sanitizer = new HtmlSanitizer();
 
-        answer.Content = answerDto.Content;
+        answer.Content = sanitizer.Sanitize(answerDto.Content);
         answer.UserDisplayName = name;
         answer.UpdatedAt = DateTime.UtcNow;
 
