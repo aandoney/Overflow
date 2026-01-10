@@ -1,9 +1,10 @@
 import {Button} from "@heroui/button";
+import {authConfig} from "@/lib/config";
 
 export default function RegisterButton() {
     const clientId = 'nextjs';
-    const issuer = process.env.AUTH_KEYCLOAK_ISSUER;
-    const redirectUrl = process.env.AUTH_URL;
+    const issuer = authConfig.kcIssuer;
+    const redirectUrl = authConfig.authUrl;
     
     const registerUrl = `${issuer}/protocol/openid-connect/registrations` +
         `?client_id=${clientId}&redirect_uri=` +
