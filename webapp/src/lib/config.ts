@@ -12,11 +12,12 @@ function getEnv(name: string) {
 }
 
 export const authConfig = {
-   kcIssuer: getEnv('AUTH_KEYCLOAK_ISSUER'),
-   kcSecret: getEnv('AUTH_KEYCLOAK_SECRET'),
-   kcClientId: getEnv('AUTH_KEYCLOAK_ID'),
-   secret: getEnv('AUTH_SECRET'),
-   authUrl: getEnv('AUTH_URL')
+    kcIssuer: getEnv('AUTH_KEYCLOAK_ISSUER'),
+    kcSecret: getEnv('AUTH_KEYCLOAK_SECRET'),
+    kcClientId: getEnv('AUTH_KEYCLOAK_ID'),
+    kcInternal: getEnv('AUTH_KEYCLOAK_ISSUER_INTERNAL'),
+    secret: getEnv('AUTH_SECRET'),
+    authUrl: getEnv('AUTH_URL')
 }
 
 export const apiConfig = {

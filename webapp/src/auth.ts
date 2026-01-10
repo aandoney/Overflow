@@ -7,8 +7,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         authorization: {
             params: {
                 scope: 'openid profile email offline_access'
-            }
-        }
+            },
+            url: `${authConfig.kcIssuer}/protocol/openid-connect/auth`
+        },
+        token: `${authConfig.kcInternal}/protocol/openid-connect/token`,
+        userinfo: `${authConfig.kcInternal}/protocol/openid-connect/userinfo`,
     })],
     callbacks: {
         async jwt({token, account, profile}) {

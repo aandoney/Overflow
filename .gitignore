@@ -482,3 +482,10 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+/infra/realms/overflow-realm.json
+/.idea/
+/infra/.env.Production
+/infra/devcerts/infra/.env.Production
+/infra/devcerts/overflow.local.crt
+/infra/devcerts/overflow.local.key
