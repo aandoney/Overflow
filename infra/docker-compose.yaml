@@ -5,11 +5,12 @@ services:
       - "8080:18888"
     expose:
       - "18889"
+      - "18890"
     networks:
       - "aspire"
     restart: "always"
   keycloak:
-    image: "quay.io/keycloak/keycloak:26.3"
+    image: "quay.io/keycloak/keycloak:26.4"
     command:
       - "start"
       - "--import-realm"
@@ -17,12 +18,14 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: "admin"
       KC_BOOTSTRAP_ADMIN_PASSWORD: "${KEYCLOAK_PASSWORD}"
       KC_HEALTH_ENABLED: "true"
+      KC_FEATURES: "opentelemetry"
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME_STRICT: "false"
       VIRTUAL_HOST: "id.overflow.local"
       VIRTUAL_PORT: "8080"
-    ports:
-      - "6001:8080"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://production-dashboard:18889"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+      OTEL_SERVICE_NAME: "keycloak"
     expose:
       - "8080"
       - "9000"
@@ -33,7 +36,7 @@ services:
         read_only: false
       - type: "bind"
         target: "/opt/keycloak/data/import"
-        source: "D:\\source-learning\\Overflow\\infra\\realms"
+        source: "${KEYCLOAK_BINDMOUNT_0}"
         read_only: true
     networks:
       - "aspire"
@@ -55,13 +58,9 @@ services:
       - "aspire"
   typesense:
     image: "typesense/typesense:29.0"
-    command:
-      - "--data-dir"
-      - "/data"
-      - "--api-key"
-      - "${TYPESENSE_API_KEY}"
-      - "--enable-cors"
     environment:
+      TYPESENSE_DATA_DIR: "/data"
+      TYPESENSE_ENABLE_CORS: "true"
       TYPESENSE_API_KEY: "${TYPESENSE_API_KEY}"
     expose:
       - "8108"
@@ -73,7 +72,7 @@ services:
     networks:
       - "aspire"
   messaging:
-    image: "docker.io/library/rabbitmq:4.1-management"
+    image: "docker.io/library/rabbitmq:4.2-management"
     environment:
       RABBITMQ_DEFAULT_USER: "guest"
       RABBITMQ_DEFAULT_PASS: "${MESSAGING_PASSWORD}"
@@ -95,11 +94,24 @@ services:
       OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: "in_memory"
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
       HTTP_PORTS: "${QUESTION_SVC_PORT}"
+      KEYCLOAK_HTTP: "http://keycloak:8080"
       services__keycloak__http__0: "http://keycloak:8080"
+      KEYCLOAK_MANAGEMENT: "http://keycloak:9000"
       services__keycloak__management__0: "http://keycloak:9000"
-      services__keycloak__keycloak__0: "keycloak://keycloak:8080"
       ConnectionStrings__questionDb: "Host=postgres;Port=5432;Username=postgres;Password=${POSTGRES_PASSWORD};Database=questionDb"
+      QUESTIONDB_HOST: "postgres"
+      QUESTIONDB_PORT: "5432"
+      QUESTIONDB_USERNAME: "postgres"
+      QUESTIONDB_PASSWORD: "${POSTGRES_PASSWORD}"
+      QUESTIONDB_URI: "postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/questionDb"
+      QUESTIONDB_JDBCCONNECTIONSTRING: "jdbc:postgresql://postgres:5432/questionDb"
+      QUESTIONDB_DATABASENAME: "questionDb"
       ConnectionStrings__messaging: "amqp://guest:${MESSAGING_PASSWORD}@messaging:5672"
+      MESSAGING_HOST: "messaging"
+      MESSAGING_PORT: "5672"
+      MESSAGING_USERNAME: "guest"
+      MESSAGING_PASSWORD: "${MESSAGING_PASSWORD}"
+      MESSAGING_URI: "amqp://guest:${MESSAGING_PASSWORD}@messaging:5672"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://production-dashboard:18889"
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "question-svc"
@@ -123,8 +135,14 @@ services:
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
       HTTP_PORTS: "${SEARCH_SVC_PORT}"
       typesense-api-key: "${TYPESENSE_API_KEY}"
+      TYPESENSE_TYPESENSE: "http://typesense:8108"
       services__typesense__typesense__0: "http://typesense:8108"
       ConnectionStrings__messaging: "amqp://guest:${MESSAGING_PASSWORD}@messaging:5672"
+      MESSAGING_HOST: "messaging"
+      MESSAGING_PORT: "5672"
+      MESSAGING_USERNAME: "guest"
+      MESSAGING_PASSWORD: "${MESSAGING_PASSWORD}"
+      MESSAGING_URI: "amqp://guest:${MESSAGING_PASSWORD}@messaging:5672"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://production-dashboard:18889"
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "search-svc"
@@ -145,16 +163,22 @@ services:
       - "dotnet"
     environment:
       ASPNETCORE_ENVIRONMENT: "Production"
-      services__question-svc__http__0: "http://question-svc:${QUESTION_SVC_PORT}"
+      QUESTION_SVC_HTTP: "http://question-svc:${QUESTION_SVC_PORT}"
       REVERSEPROXY__ROUTES__route0__MATCH__PATH: "/questions/{**catch-all}"
       REVERSEPROXY__ROUTES__route0__CLUSTERID: "cluster_question-svc"
-      REVERSEPROXY__ROUTES__route1__MATCH__PATH: "/tags/{**catch-all}"
+      REVERSEPROXY__ROUTES__route1__MATCH__PATH: "/test/{**catch-all}"
       REVERSEPROXY__ROUTES__route1__CLUSTERID: "cluster_question-svc"
-      REVERSEPROXY__ROUTES__route2__MATCH__PATH: "/search/{**catch-all}"
-      REVERSEPROXY__ROUTES__route2__CLUSTERID: "cluster_search-svc"
+      REVERSEPROXY__ROUTES__route2__MATCH__PATH: "/tags/{**catch-all}"
+      REVERSEPROXY__ROUTES__route2__CLUSTERID: "cluster_question-svc"
+      REVERSEPROXY__ROUTES__route3__MATCH__PATH: "/search/{**catch-all}"
+      REVERSEPROXY__ROUTES__route3__CLUSTERID: "cluster_search-svc"
       REVERSEPROXY__CLUSTERS__cluster_question-svc__DESTINATIONS__destination1__ADDRESS: "https+http://question-svc"
       REVERSEPROXY__CLUSTERS__cluster_search-svc__DESTINATIONS__destination1__ADDRESS: "https+http://search-svc"
+      services__question-svc__http__0: "http://question-svc:${QUESTION_SVC_PORT}"
+      QUESTION_SVC_HTTPS: "https://question-svc:${QUESTION_SVC_PORT}"
+      SEARCH_SVC_HTTP: "http://search-svc:${SEARCH_SVC_PORT}"
       services__search-svc__http__0: "http://search-svc:${SEARCH_SVC_PORT}"
+      SEARCH_SVC_HTTPS: "https://search-svc:${SEARCH_SVC_PORT}"
       ASPNETCORE_URLS: "http://*:8001"
       VIRTUAL_HOST: "api.overflow.local"
       VIRTUAL_PORT: "8001"
@@ -165,6 +189,24 @@ services:
       - "8001:8001"
     expose:
       - "5000"
+    networks:
+      - "aspire"
+  webapp:
+    image: "${WEBAPP_IMAGE}"
+    environment:
+      NODE_ENV: "production"
+      KEYCLOAK_HTTP: "http://keycloak:8080"
+      services__keycloak__http__0: "http://keycloak:8080"
+      KEYCLOAK_MANAGEMENT: "http://keycloak:9000"
+      services__keycloak__management__0: "http://keycloak:9000"
+      PORT: "4000"
+      VIRTUAL_HOST: "app.overflow.local"
+      VIRTUAL_PORT: "4000"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://production-dashboard:18889"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+      OTEL_SERVICE_NAME: "webapp"
+    expose:
+      - "4000"
     networks:
       - "aspire"
   nginx-proxy:

@@ -1,3 +1,5 @@
+#pragma warning disable ASPIRECERTIFICATES001
+
 using Microsoft.Extensions.Hosting;
 
 var builder = DistributedApplication.CreateBuilder(args);
@@ -7,6 +9,7 @@ var compose = builder.AddDockerComposeEnvironment("production")
 
 var keycloak = builder.AddKeycloak("keycloak", 6001)
     .WithDataVolume("keycloak-data")
+    .WithoutHttpsCertificate()
     .WithRealmImport("../infra/realms")
     .WithEnvironment("KC_HTTP_ENABLED", "true")
     .WithEnvironment("KC_HOSTNAME_STRICT", "false")
@@ -17,17 +20,13 @@ var postgres = builder.AddPostgres("postgres", port: 5432)
     .WithDataVolume("postgres-data")
     .WithPgAdmin();
 
-//var typesenseApiKey = builder.AddParameter("typesense-api-key", secret: true);
-
-var typesenseApiKey = builder.Environment.IsDevelopment()
-    ? builder.Configuration["Parameters:typesense-api-key"] 
-      ?? throw new InvalidOperationException("Could not get typesense api key")
-    : "${TYPESENSE_API_KEY}";
+var typesenseApiKey = builder.AddParameter("typesense-api-key", secret: true);
 
 var typesense = builder
     .AddContainer("typesense", "typesense/typesense", "29.0")
-    .WithArgs("--data-dir", "/data", "--api-key", typesenseApiKey, "--enable-cors")
     .WithVolume("typesense-data", "/data")
+    .WithEnvironment("TYPESENSE_DATA_DIR", "/data")
+    .WithEnvironment("TYPESENSE_ENABLE_CORS", "true")
     .WithEnvironment("TYPESENSE_API_KEY", typesenseApiKey)
     .WithHttpEndpoint(8108, 8108, name: "typesense");
 
@@ -54,6 +53,7 @@ var searchService = builder.AddProject<Projects.SearchService>("search-svc")
     .WaitFor(typesense)
     .WaitFor(rabbitmq); 
 
+#pragma warning disable ASPIRECERTIFICATES001
 var yarp = builder.AddYarp("gateway")
     .WithConfiguration(yarpBuilder =>
     {
@@ -62,12 +62,13 @@ var yarp = builder.AddYarp("gateway")
         yarpBuilder.AddRoute("/tags/{**catch-all}", questionService);
         yarpBuilder.AddRoute("/search/{**catch-all}", searchService);
     })
+    .WithoutHttpsCertificate()
     .WithEnvironment("ASPNETCORE_URLS", "http://*:8001")
     .WithEndpoint(port: 8001, targetPort: 8001, scheme: "http", name: "gateway", isExternal: true)
     .WithEnvironment("VIRTUAL_HOST", "api.overflow.local")
     .WithEnvironment("VIRTUAL_PORT", "8001");
 
-var webapp = builder.AddNpmApp("webapp", "../webapp", "dev")
+var webapp = builder.AddJavaScriptApp("webapp", "../webapp")
     .WithReference(keycloak)
     .WithHttpEndpoint(env: "PORT", port: 3000, targetPort: 4000)
     .WithEnvironment("VIRTUAL_HOST", "app.overflow.local")
