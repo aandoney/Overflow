@@ -22,7 +22,7 @@ export default async function QuestionDetailedHeader({question}: Props) {
                     color='secondary'
                     className='w-[20%]'
                 >
-                    <Link href='/question/ask'>
+                    <Link href='/questions/ask'>
                         Ask Question
                     </Link>
                 </Button>
