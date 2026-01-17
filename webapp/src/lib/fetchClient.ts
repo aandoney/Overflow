@@ -38,7 +38,7 @@ export async function fetchClient<T>(
             return notFound();
         }
         if (response.status === 500) {
-            throw new Error('Server error. Please try again later');
+            //throw new Error('Server error. Please try again later');
         }
         
         let message = '';
